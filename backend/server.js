@@ -1,43 +1,100 @@
+// const express = require('express');
+// const cors = require("cors");
+// const bodyParser = require('body-parser');
+// const mongoose = require('mongoose');
+// const moviesRouter = require('./routes/movies');
+// const tvSeriesRouter = require('./routes/tvSeries');
+// const additionalRouter = require('./routes/additional');
+// const bookmarkRouter = require('./routes/bookmark');
+// const personRoutes = require('./routes/person')
+// const trendingRoutes = require('./routes/trending');
+// require('dotenv').config();
+
+// const app = express();
+
+// // Middleware
+// app.use(express.json());
+// app.use(bodyParser.urlencoded({ extended: false }));
+// app.use(cors())
+// app.use(bodyParser.json());
+
+// // Database connection
+// mongoose.connect(process.env.MONGO_URI)
+//     .then(() => console.log('Connected to MongoDB'))
+//     .catch(err => console.error('Error connecting to MongoDB:', err));
+
+
+
+// app.use('/movies', moviesRouter);
+// app.use('/tvseries', tvSeriesRouter);
+// app.use('/additional', additionalRouter);
+// app.use('/bookmark', bookmarkRouter)
+// app.use('/person', personRoutes);
+// app.use('/trending', trendingRoutes);
+// app.get('/', (req, res,) => {
+//     res.status(200).json("Server is now Listen")
+// })
+
+
+
+
+
+// const PORT = process.env.PORT || 3001;
+// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 const express = require('express');
-const cors = require("cors");
+const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const moviesRouter = require('./routes/movies');
 const tvSeriesRouter = require('./routes/tvSeries');
 const additionalRouter = require('./routes/additional');
 const bookmarkRouter = require('./routes/bookmark');
-const personRoutes = require('./routes/person')
+const personRoutes = require('./routes/person');
 const trendingRoutes = require('./routes/trending');
 require('dotenv').config();
 
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+  origin: [
+    'https://entertainment-app-bice.vercel.app',
+    'http://localhost:5173' // For local development
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // If using Firebase auth tokens
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight requests
+
 // Middleware
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cors())
-app.use(bodyParser.json());
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('Error connecting to MongoDB:', err));
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Error connecting to MongoDB:', err));
 
-
-
+// Routes
 app.use('/movies', moviesRouter);
 app.use('/tvseries', tvSeriesRouter);
 app.use('/additional', additionalRouter);
-app.use('/bookmark', bookmarkRouter)
+app.use('/bookmark', bookmarkRouter);
 app.use('/person', personRoutes);
 app.use('/trending', trendingRoutes);
-app.get('/', (req, res,) => {
-    res.status(200).json("Server is now Listen")
-})
 
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'Server is now listening' });
+});
 
-
-
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Internal Server Error' });
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
