@@ -63,15 +63,32 @@ const corsOptions = {
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // If using Firebase auth tokens
+  credentials: true
 };
 
+// Apply CORS to all requests
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handle preflight requests
+
+// Handle preflight OPTIONS requests
+app.options('*', (req, res) => {
+  res.set({
+    'Access-Control-Allow-Origin': req.headers.origin || 'https://entertainment-app-bice.vercel.app',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true'
+  });
+  res.status(204).send(); // Respond with 204 No Content
+});
 
 // Middleware
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// Normalize URLs to prevent redirects (remove extra slashes)
+app.use((req, res, next) => {
+  req.url = req.url.replace(/\/+/g, '/'); // Replace multiple slashes with single slash
+  next();
+});
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI)
