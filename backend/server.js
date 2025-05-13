@@ -83,6 +83,14 @@ app.options('*', (req, res) => {
 // Middleware
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cors({
+    origin: ['https://entertainment-app-bice.vercel.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+app.use(bodyParser.json());
+
 
 // Normalize URLs to prevent redirects (remove extra slashes)
 app.use((req, res, next) => {
