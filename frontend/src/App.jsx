@@ -14,44 +14,35 @@ import { setBookmark, setLoadingBookmark } from "./store/slices/bookmarkSlice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from './firebase-config'
+import { auth } from './firebase-config';
+import { fetchBookmarks } from './services/api';
 
 function App() {
-
   const dispatch = useDispatch();
-
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'https://entertainment-app-zopp.vercel.app';
 
   useEffect(() => {
-    try {
-      dispatch(setLoadingBookmark(true));
-      onAuthStateChanged(auth, async (user) => {
-        const token = await user.getIdToken()
-        if (token) {
-          const headers = {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          };
-          //fetching bookmark in array from backend
-          fetch(`${API_URL}/bookmark`, { headers })
-            .then(res => res.json()).then(data => {
-              dispatch(setBookmark(data))
-            })
-            .catch(err => console.log(err))
+    dispatch(setLoadingBookmark(true));
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          const data = await fetchBookmarks();
+          dispatch(setBookmark(data));
+        } else {
+          dispatch(setBookmark([]));
         }
-      })
-      dispatch(setLoadingBookmark(false));
-    }
-    catch (err) {
-      console.log(console.error());
-    }
-  }, [])
-
+      } catch (err) {
+        console.error('Error fetching bookmarks:', err.message);
+      } finally {
+        dispatch(setLoadingBookmark(false));
+      }
+    });
+    return () => unsubscribe();
+  }, [dispatch]);
 
   return (
     <div className="relative bg-background w-full min-h-screen text-primaryColor pb-8 font-[Outfit]">
       <ErrorBoundary>
-
         <Header />
         <Routes>
           <Route element={<PrivateRoute />}>
@@ -68,8 +59,6 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
-        {/* <Footer /> */}
-
       </ErrorBoundary>
     </div>
   );

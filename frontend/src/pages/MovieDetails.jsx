@@ -1,88 +1,81 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { fetchDetails } from '../services/api';
 
 const MovieDetails = () => {
-  const [fullMovieDetail, setFullMovieDetail] = useState([]);
+  const [fullMovieDetail, setFullMovieDetail] = useState({});
+  const [cast, setCast] = useState([]);
   const [loading, setLoading] = useState(true);
-  const serverURL = import.meta.env.VITE_SERVER_URL;
+  const [error, setError] = useState(null);
+  const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'https://entertainment-app-zopp.vercel.app';
+  const navigate = useNavigate();
 
-
-  const { searchResults } = useSelector(state => state.searchResultsSlice)
-  const { recommended } = useSelector(state => state.recommendedSlice)
-  const { movies } = useSelector(state => state.moviesSlice)
-  const { series } = useSelector(state => state.seriesSlice)
-  const { trending } = useSelector(state => state.trendingSlice)
-  const { bookmark } = useSelector(state => state.bookmarkSlice)
+  const { searchResults } = useSelector(state => state.searchResultsSlice);
+  const { recommended } = useSelector(state => state.recommendedSlice);
+  const { movies } = useSelector(state => state.moviesSlice);
+  const { series } = useSelector(state => state.seriesSlice);
+  const { trending } = useSelector(state => state.trendingSlice);
+  const { bookmark } = useSelector(state => state.bookmarkSlice);
   const getAllMoviesDetails = [
-    ...searchResults,
-    ...recommended,
-    ...movies,
-    ...series,
-    ...trending,
-    ...bookmark
+    ...new Map(
+      [...searchResults, ...recommended, ...movies, ...series, ...trending, ...bookmark]
+        .filter(item => item && item.id) // Remove invalid items
+        .map(item => [item.id, item])
+    ).values()
   ];
 
-  // Find the movie or TV show that matches the ID
   const { id } = useParams();
   const findMovieDetails = getAllMoviesDetails.find(
-    (result) => result.id === parseInt(id)
+    (result) => result?.id === parseInt(id)
   );
-  // Check if media type is movie or tv
-  const [movieOrTv] = useState(
-    findMovieDetails?.release_date
+
+  const movieOrTv = findMovieDetails
+    ? findMovieDetails.release_date
       ? "movies"
-      : findMovieDetails?.first_air_date
+      : findMovieDetails.first_air_date
         ? "tvseries"
         : "person"
-  );
-  const media_type_id = findMovieDetails?.id;
-  // console.log(media_type_id);
+    : "movies";
+  const media_type_id = findMovieDetails?.id || id;
 
-
-  const API_URL = import.meta.env.VITE_API_URL
-  const fetchDetails = `${API_URL}/${movieOrTv}/details/${media_type_id}`;
-  // Fetching Details
   useEffect(() => {
-
-    fetch(fetchDetails)
-      .then((res) => res.json())
-      .then((data) => {
-        setFullMovieDetail(data.details);
-        console.log(movieOrTv === "movies" ? 'movie' : 'tv');
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        if (!media_type_id || media_type_id === 'undefined') {
+          throw new Error('Invalid media ID');
+        }
+        const data = await fetchDetails(movieOrTv, media_type_id);
+        setFullMovieDetail(data.details || {});
+        setCast(data.cast || []);
+      } catch (err) {
+        console.error('Error fetching details:', err.message);
+        setError(err.message);
+        navigate('/error', { state: { message: err.message } });
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => console.log(err));
+      }
+    };
+    fetchData();
+  }, [fetchDetails, media_type_id, navigate]);
 
-  }, [fetchDetails]);
-
-  // Fetching Cast
-  const fetchCast = `${API_URL}/${movieOrTv}/details/${media_type_id}`;
-  const [cast, setCast] = useState([]);
   useEffect(() => {
-    fetch(fetchCast)
-      .then((res) => res.json())
-      .then((data) => {
-        setCast(data.cast);
-      })
-      .catch((err) => console.log(err));
-    // console.log(cast);
-  }, [fetchCast]);
+    if (fullMovieDetail.title || fullMovieDetail.name) {
+      document.title = fullMovieDetail.title || fullMovieDetail.name;
+    }
+  }, [fullMovieDetail]);
 
-  // Slice to show only year
-  // add move or tv name ............!!imp
   const releaseYear =
     fullMovieDetail.release_date?.slice(0, 4) ||
-    fullMovieDetail.first_air_date?.slice(0, 4);
-  // Get Main Spoken Language
+    fullMovieDetail.first_air_date?.slice(0, 4) ||
+    'N/A';
   const spokenLanguage =
-    fullMovieDetail.spoken_languages?.[0].english_name ||
-    fullMovieDetail.spoken_languages?.[0].name;
-  // Get TV and Movie Runtime
-  const runtime = fullMovieDetail.episode_run_time || fullMovieDetail.runtime;
-
-  // Get Rating and use it to show stars
-  const rating = fullMovieDetail.vote_average;
+    fullMovieDetail.spoken_languages?.[0]?.english_name ||
+    fullMovieDetail.spoken_languages?.[0]?.name ||
+    'N/A';
+  const runtime = fullMovieDetail.episode_run_time || fullMovieDetail.runtime || 'N/A';
+  const rating = fullMovieDetail.vote_average || 0;
   const stars = [];
   for (let i = 1; i <= 5; i++) {
     if (i <= rating / 2) {
@@ -120,96 +113,94 @@ const MovieDetails = () => {
     }
   }
 
-  useEffect(() => {
-    document.title = fullMovieDetail.title || fullMovieDetail.name;  //Modify Func Later
-  });
+  if (error) {
+    return <div className="text-red-500 text-center">Error: {error}</div>;
+  }
 
   return (
     <section className="px-4 pt-20 w-full lg:pl-32 lg:pr-8 lg:flex">
-      <div className="w-full flex justify-center lg:justify-start ">
+      <div className="w-full flex justify-center lg:justify-start">
         {loading ? (
-          <div className="w-4/5  h-[500px] object-cover rounded-xl bg-gray-400 animate-pulse"></div>
+          <div className="w-4/5 h-[500px] object-cover rounded-xl bg-gray-400 animate-pulse"></div>
         ) : (
           <div className="w-[80%] overflow-hidden h-[100%]">
             <img
-              src={`https://image.tmdb.org/t/p/w500/${fullMovieDetail.poster_path || fullMovieDetail.backdrop_path}`}
-              alt={fullMovieDetail.title}
-              className="block m-auto max-w-full  max-h-full rounded-xl lg:min-w-full lg:object-contain"
+              src={`https://image.tmdb.org/t/p/w500/${fullMovieDetail.poster_path || fullMovieDetail.backdrop_path || ''}`}
+              alt={fullMovieDetail.title || fullMovieDetail.name || 'Poster'}
+              className="block m-auto max-w-full max-h-full rounded-xl lg:min-w-full lg:object-contain"
               style={{ width: '300px' }}
             />
           </div>
         )}
       </div>
-      <div className="lg:">
+      <div>
         <div className="w-full flex flex-col justify-center items-center text-center pb-4 lg:items-start lg:justify-start">
           <h1 className="text-2xl font-light mt-4 lg:text-4xl lg:font-medium lg:mt-0">
-            {fullMovieDetail.title || fullMovieDetail.name}
+            {fullMovieDetail.title || fullMovieDetail.name || 'N/A'}
           </h1>
           <p className="font-light text-sm text-[#86888d] lg:text-base">
-            {fullMovieDetail.tagline}
+            {fullMovieDetail.tagline || ''}
           </p>
         </div>
         <div className="w-full flex flex-col justify-center gap-y-2 items-center pb-4 lg:gap-x-3 lg:justify-start lg:flex-row">
           <p className="text-3xl font-bold">
-            {(fullMovieDetail.vote_average / 2).toFixed(1) || "N/A"}
+            {(rating / 2).toFixed(1) || "N/A"}
           </p>
           <div className="flex gap-x-1">{stars}</div>
         </div>
-        <div className="w-full flex  justify-between  gap-x-2 py-4 lg:justify-start lg:gap-x-8">
+        <div className="w-full flex justify-between gap-x-2 py-4 lg:justify-start lg:gap-x-8">
           <div>
-            <p className=" text-[#86888d]">Language</p>
+            <p className="text-[#86888d]">Language</p>
             <p className="text-sm">{spokenLanguage}</p>
           </div>
           <div>
-            <p className=" text-[#86888d]">
-              {movieOrTv === "tv" ? "First Air" : "Length"}
+            <p className="text-[#86888d]">
+              {movieOrTv === "tvseries" ? "First Air" : "Length"}
             </p>
             <p className="text-sm">
-              {movieOrTv === "tv"
-                ? fullMovieDetail.first_air_date
-                : runtime + `mins.`}
+              {movieOrTv === "tvseries"
+                ? fullMovieDetail.first_air_date || 'N/A'
+                : runtime + (runtime !== 'N/A' ? ' mins.' : '')}
             </p>
           </div>
           <div>
-            <p className=" text-[#86888d]">
-              {movieOrTv === "tv" ? "Last Air" : "Year"}
+            <p className="text-[#86888d]">
+              {movieOrTv === "tvseries" ? "Last Air" : "Year"}
             </p>
             <p className="text-sm">
-              {movieOrTv === "tv" ? fullMovieDetail.last_air_date : releaseYear}
+              {movieOrTv === "tvseries" ? fullMovieDetail.last_air_date || 'N/A' : releaseYear}
             </p>
           </div>
           <div>
-            <p className=" text-[#86888d]">Status</p>
-            <p className="text-sm">{fullMovieDetail.status}</p>
+            <p className="text-[#86888d]">Status</p>
+            <p className="text-sm">{fullMovieDetail.status || 'N/A'}</p>
           </div>
         </div>
         <div className="mb-8">
           <h2 className="mb-2">Genres</h2>
-          <div className="flex gap-x-2 ">
+          <div className="flex gap-x-2">
             {fullMovieDetail?.genres?.map((genre, id) => (
               <p
                 key={id}
-                className="text-xs  text-darkBlue bg-primaryColor px-2 rounded lg:text-sm lg:px-3 lg:py-1"
+                className="text-xs text-darkBlue bg-primaryColor px-2 rounded lg:text-sm lg:px-3 lg:py-1"
               >
                 {genre.name}
               </p>
-            ))}
+            )) || <p>No genres available</p>}
           </div>
         </div>
         <div>
           <h2 className="mb-3">Synopsis</h2>
-          <p className=" font-light">{fullMovieDetail.overview}</p>
+          <p className="font-light">{fullMovieDetail.overview || 'No synopsis available'}</p>
         </div>
         <div className="mt-8 w-full">
           <h2 className="mb-3">Cast</h2>
           <div className="flex gap-2 flex-wrap w-full">
-            {cast?.map((actor) => {
-              return (
-                <p key={actor.name} className="text-sm border px-2 rounded">
-                  {actor.name}
-                </p>
-              );
-            })}
+            {cast?.map((actor) => (
+              <p key={actor.name} className="text-sm border px-2 rounded">
+                {actor.name}
+              </p>
+            )) || <p>No cast available</p>}
           </div>
         </div>
       </div>

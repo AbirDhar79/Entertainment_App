@@ -249,35 +249,6 @@ async function importData() {
     }
     console.log('TV series and details imported');
 
-    // Fetch Trending
-    // const trendingResponse = await axios.get(`${BASE_URL}/trending/all/week?api_key=${TMDB_API_KEY}`);
-    // const trendingItems = trendingResponse.data.results;
-    // for (const item of trendingItems) {
-    //   await Trendings.findOneAndUpdate(
-    //     { id: item.id },
-    //     {
-    //       _id: item.id.toString(),
-    //       adult: item.adult,
-    //       backdrop_path: item.backdrop_path,
-    //       id: item.id,
-    //       name: item.name || item.title,
-    //       original_language: item.original_language,
-    //       original_name: item.original_name || item.original_title,
-    //       overview: item.overview,
-    //       poster_path: item.poster_path,
-    //       media_type: item.media_type,
-    //       genre_ids: item.genre_ids,
-    //       popularity: item.popularity,
-    //       release_date: item.media_type === 'movie' ? item.release_date : null,
-    //       first_air_date: item.media_type === 'tv' ? item.first_air_date : null,
-    //       vote_average: item.vote_average,
-    //       vote_count: item.vote_count,
-    //       origin_country: item.origin_country || [],
-    //     },
-    //     { upsert: true, new: true }
-    //   );
-    // }
-    // console.log('Trending content imported');
     await Trendings.deleteMany({}); // Clear existing data
     const trendingResponse = await axios.get(`${BASE_URL}/trending/all/week?api_key=${TMDB_API_KEY}`);
     const trendingItems = trendingResponse.data.results;
